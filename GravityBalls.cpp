@@ -3,13 +3,13 @@
 #include <ctime>
 
 #define WALLS_H		     3
-// #define N_BALLS		 	 5
+#define N_BALLS		 	 2//(rand()%10)
+#define RADIUS           (rand()%30)
 // #define ACC_GRAVITY		 98
-#define MAX_VELOCITY	 200
+#define MAX_VELOCITY	 50
 #define FLOOR_MASS		 10000000
 #define MAX_TEMP 	     1000
-#define RAND_RAD	     10
-#define RAND_BALL		 6
+#define BALLS_DENSITY	 1
 
 using namespace std;
 using namespace olc;
@@ -49,29 +49,29 @@ string WallsStr[MAX_WALLS] =
 };
 
 vector<BALL> Balls;
+vector<pair<float, float>> RelativeVelocity;
+bool EnableGravity = false;
+bool BallGrabbed = false;
+
 
 class Example : public olc::PixelGameEngine
 {
 public:
 	Example()
 	{
-		sAppName = "Balls In Box";
+		sAppName = "Gravity Balls";
 	}
 public:
 	
 	BALL *PickedBall = nullptr;
-	int N_BALLS = rand()%RAND_BALL;
-	float ACC_GRAVITY = 98;
-	float BallsRadius = rand()% RAND_RAD;
-	float Temperature = 0;
-	bool TempChanged = false;
 	int Ids = 1;
+	float BigRad;
 
 	void CreateBall(float Px, float Py, float Rad)
 	{
 		BALL NewBall;
 		NewBall.radius = Rad;
-		NewBall.mass = (NewBall.radius * 10);
+		NewBall.mass = (4/3 * 3.14 * pow(NewBall.radius, 3) * BALLS_DENSITY);
 		NewBall.x_pos = Px;
 		NewBall.y_pos = Py;
 		if(((NewBall.x_pos + NewBall.radius) >= ScreenWidth()) || (NewBall.x_pos - NewBall.radius) <=  0)
@@ -79,10 +79,10 @@ public:
 		if(((NewBall.y_pos + NewBall.radius) >= ScreenHeight() - WALLS_H) || (NewBall.y_pos - NewBall.radius) <=  0)
 			NewBall.y_pos = ScreenHeight() / 2;			
 		NewBall.color = Pixel(255, rand() % 255, rand() % 255);
-		NewBall.v_x = Temperature * 2;
-		NewBall.v_y = Temperature * 2;
+		NewBall.v_x = 5;
+		NewBall.v_y = 5; 
 		NewBall.Id = Ids++;
-		cout << NewBall.Id << endl;
+		// cout << NewBall.Id << endl;
 		Balls.push_back(NewBall);		
 	}
 
@@ -101,7 +101,7 @@ public:
 	float CalcBallsQuadDistance(float x1_pos, float y1_pos, float x2_pos, float y2_pos, bool Sqrt)
 	{
 		if(Sqrt)
-			return sqrt(((x1_pos - x2_pos) * (x1_pos - x2_pos)) + ((y1_pos - y2_pos) * (y1_pos - y2_pos)));
+			return sqrtf(((x1_pos - x2_pos) * (x1_pos - x2_pos)) + ((y1_pos - y2_pos) * (y1_pos - y2_pos)));
 		else
 			return (((x1_pos - x2_pos) * (x1_pos - x2_pos)) + ((y1_pos - y2_pos) * (y1_pos - y2_pos)));
 	}
@@ -112,7 +112,7 @@ public:
 		BALL  *b2 = Target;
 
 		// Distance between balls
-		float fDistance = sqrtf((b1->x_pos - b2->x_pos)*(b1->x_pos - b2->x_pos) + (b1->y_pos - b2->y_pos)*(b1->y_pos - b2->y_pos));
+		float fDistance = CalcBallsQuadDistance(b1->x_pos, b1->y_pos, b2->x_pos, b2->y_pos, true);
 
 		// Normal
 		float nx = (b2->x_pos - b1->x_pos) / fDistance;
@@ -148,15 +148,21 @@ public:
 		float qRadiusSum = ((Actual->radius + Target->radius) * (Actual->radius + Target->radius));
 		if(qDistance < qRadiusSum)
 		{
-			DynamicCollision(Actual, Target);
+			// DynamicCollision(Actual, Target);
 			qDistance = sqrt(qDistance);
 			float Ovelap = 0.5 * (qDistance - Actual->radius - Target->radius);
 			Actual->x_pos -= Ovelap * (Actual->x_pos - Target->x_pos) / qDistance;
 			Actual->y_pos -= Ovelap * (Actual->y_pos - Target->x_pos) / qDistance;
 			Target->x_pos += Ovelap * (Actual->x_pos - Target->x_pos) / qDistance;
 			Target->y_pos += Ovelap * (Actual->y_pos - Target->y_pos) / qDistance;	
-			if(Target->y_pos + Target->radius > ScreenHeight() - WALLS_H)
-				Target->y_pos = ScreenHeight() - WALLS_H - Target->radius;		
+			if(Target->x_pos - Target->radius <= 0) 
+				Target->x_pos = Target->x_pos + Target->radius;
+			else if(Target->x_pos + Target->radius >= ScreenWidth() - WALLS_H) 
+				Target->x_pos = Target->x_pos - Target->radius;
+			if(Target->y_pos - Target->radius <= 0) 
+				Target->y_pos = Target->y_pos + Target->radius;
+			else if(Target->y_pos + Target->radius >= ScreenHeight() - WALLS_H) 
+				Target->y_pos = Target->y_pos - Target->radius;			
 		}
 	}
 
@@ -191,6 +197,7 @@ public:
 		{
 			if(IsPointInCircle(BallSelected->x_pos, BallSelected->y_pos, BallSelected->radius, GetMouseX(), GetMouseY()))
 				PickedBall = BallSelected;
+			BallGrabbed = true;
 		}
 		if(GetMouse(0).bHeld)
 		{
@@ -203,149 +210,133 @@ public:
 		}
 		if(GetMouse(0).bReleased)
 		{
-			// if(PickedBall != nullptr)
-			// {
-			// 	if(PickedBall->v_y < 0)
-			// 		PickedBall->v_y -= 10;
-			// 	else
-			// 		PickedBall->v_y += 10;
-			// }
 			PickedBall = nullptr;
+			BallGrabbed = false;
 		}	
 	}
 
-	void ChangeTemp()
+	void BallsGravity(BALL *Actual, BALL *OtherBall, float fElapsedTime)
 	{
-		if(GetKey(UP).bPressed || GetKey(UP).bHeld)
+		float dist = CalcBallsQuadDistance(Actual->x_pos, Actual->y_pos, OtherBall->x_pos, OtherBall->y_pos, true);
+		float norm_x = (Actual->x_pos - OtherBall->x_pos) / dist;
+		float norm_y = (Actual->y_pos - OtherBall->y_pos) / dist;
+
+		if(norm_x != 0 || Actual->v_x < MAX_VELOCITY || dist + BigRad > 0)
 		{
-			if(Temperature < MAX_TEMP)
-				Temperature++;
-			else
-				Temperature = MAX_TEMP;
-			TempChanged = true;
+				Actual->v_x += (OtherBall->mass / (dist * dist)) * fElapsedTime;
 		}
-		if(GetKey(DOWN).bPressed || GetKey(DOWN).bHeld)
+		else if(Actual->v_x >= MAX_VELOCITY)
 		{
-			if(Temperature > 0)
-				Temperature--;
-			else
-				Temperature = 0;
-			TempChanged = true;
+				Actual->v_x = MAX_VELOCITY;
 		}
-		if(TempChanged)
-			cout << "Temp: " << Temperature << endl;
+		// else
+		// 	Actual->v_x = 0;
+
+		if(norm_y != 0 || Actual->v_y < MAX_VELOCITY || dist + BigRad > 0)
+		{
+				Actual->v_y += (OtherBall->mass / (dist * dist)) * fElapsedTime;
+		}
+		else if( Actual->v_y >= MAX_VELOCITY)
+		{
+				Actual->v_y = MAX_VELOCITY;
+		}
+		// else
+		// 	Actual->v_y = 0;
+
+		// cout << endl;
+		// cout << "vx: " << Actual->v_x << endl;
+		// cout << "vy: " << Actual->v_y << endl;
+
+		RelativeVelocity.push_back({Actual->v_x, Actual->v_y});
 	}
 
-	void Gravity(BALL *Actual, float fElapsedTime)
+	void NewGravityPos(BALL *Actual, BALL *OtherBall, float fElapsedTime)
 	{
-		float FloorDist = (ScreenHeight() - WALLS_H) - Actual->y_pos;
-		float ElasticSlow = Actual->mass * 0.08;
-		if(FloorDist <= Actual->radius)
+		float dist = CalcBallsQuadDistance(Actual->x_pos, Actual->y_pos, OtherBall->x_pos, OtherBall->y_pos, true);
+		float norm_x = (Actual->x_pos - OtherBall->x_pos) / dist;
+		float norm_y = (Actual->y_pos - OtherBall->y_pos) / dist;
+		float sumX = 0, sumY = 0;
+		for(int i = 0; i < RelativeVelocity.size(); i++)
+		{		
+			if(i == Actual->Id)
+				continue;
+			sumX += RelativeVelocity[i].first;
+			sumY += RelativeVelocity[i].second;
+		}
+		if(dist > BigRad)
 		{
-
-			// cout << "Prima: " << Actual->v_y << endl;
-			if(Actual->v_y - ElasticSlow >= 0)
-				Actual->v_y = -Actual->v_y + ElasticSlow;
+			if(norm_x > 0)
+				Actual->x_pos -= sumX * fElapsedTime;
 			else
-				Actual->v_y = 0;
-			// cout << "Dopo: " << Actual->v_y << endl;
-
+				Actual->x_pos += sumX * fElapsedTime;
+			if(norm_y > 0)
+				Actual->y_pos -= sumY * fElapsedTime;
+			else
+				Actual->y_pos += sumY * fElapsedTime;
 		}
-		else
-			Actual->v_y += ACC_GRAVITY * fElapsedTime;
-		Actual->y_mom = Actual->mass * Actual->v_y;
-		Actual->y_pos += 0.5 * Actual->v_y * fElapsedTime;
-	}
-
-	void BallDynamic(BALL *Actual, vector<BALL> &OtherBalls, float fElapsedTime)
-	{
-		vector<pair<float, float>> RelativeDistance;
-		if(Temperature >= 0)
-		{
-			// if(Actual->v_x == 0)
-			// 	Actual->v_x = Temperature * 2;
-			// if(Actual->v_y == 0)
-			// 	Actual->v_y = Temperature * 2;
-			if(TempChanged)
-			{
-				if(Actual->v_x < 0)
-					Actual->v_x = -Temperature * 2;
-				else
-					Actual->v_x = Temperature * 2;
-				if(Actual->v_y < 0)
-					Actual->v_y = -Temperature * 2;
-				else
-					Actual->v_y = Temperature * 2;
-			}
-			int WichWall = WallTouched(Actual);
-
-			switch(WichWall)
-			{
-				case W_TOP:
-				case W_BOTTOM:
-					Actual->v_y = -Actual->v_y;
-					break;
-				case W_LEFT:
-				case W_RIGHT:
-					Actual->v_x = -Actual->v_x;
-					break;
-				default:
-					break;
-			}
-			for(int ob = 0; ob < OtherBalls.size(); ob++)
-			{
-				if(Actual->Id == OtherBalls[ob].Id)
-					continue;
-				RelativeDistance.push_back({OtherBalls[ob].x_pos - Actual->x_pos, OtherBalls[ob].y_pos - Actual->y_pos});
-				
-			}
-			for(int ob = 0; ob < OtherBalls.size(); ob++)
-			{
-				if(Actual->Id == OtherBalls[ob].Id)
-					continue;
-				Actual->v_x += (-OtherBalls[ob].mass * fElapsedTime / (RelativeDistance[ob].first * RelativeDistance[ob].first));
-				Actual->v_y += (-OtherBalls[ob].mass * fElapsedTime / (RelativeDistance[ob].second * RelativeDistance[ob].second));
-				cout << Actual->v_x << endl;
-			}
-
-			Actual->x_pos += Actual->v_x * fElapsedTime;
-			Actual->y_pos += Actual->v_y * fElapsedTime;
-		}
-		else
+		else 
 		{
 			Actual->v_x = 0;
 			Actual->v_y = 0;
 		}
 
+		dist = fabs(dist);
+		cout << endl;
+		cout << "Id: " << Actual->Id << endl;
+		cout << "Dist: " << dist << endl;
+		// cout << "X: " << norm_x << endl;
+		// cout << "Y: " << norm_y << endl;
+	
 	}
 
-	void CheckWallsCompenetration(BALL *Actual)
+	void BallDynamic(BALL *Actual, float fElapsedTime)
 	{
-		float WallDistance[MAX_WALLS - 1];
-		WallDistance[W_TOP]    = Actual->y_pos - Actual->radius;
-		WallDistance[W_RIGHT]  = ScreenWidth() - Actual->x_pos + Actual->radius;
-		WallDistance[W_BOTTOM] = ScreenHeight() - Actual->y_pos + Actual->radius;
-		WallDistance[W_LEFT]   = Actual->x_pos - Actual->radius;
-		if(WallDistance[W_TOP] < Actual->radius)
-			Actual->y_pos = Actual->y_pos + Actual->radius;
-		if(WallDistance[W_RIGHT] < Actual->radius)
+		// Wall touched
+		int WichWall = WallTouched(Actual);
+		switch(WichWall)
+		{
+			case W_TOP:
+			case W_BOTTOM:
+				Actual->v_y = -Actual->v_y;
+				break;
+			case W_LEFT:
+			case W_RIGHT:
+				Actual->v_x = -Actual->v_x;
+				break;
+			default:
+				break;
+		}
+		// if(WichWall != NO_WALL)
+		// {
+		// 	// Aggiorno le posizioni
+		// 	Actual->x_pos += Actual->v_x * fElapsedTime;
+		// 	Actual->y_pos += Actual->v_y * fElapsedTime;
+		// }
+		if(Actual->x_pos - Actual->radius <= 0) 
+			Actual->x_pos = Actual->x_pos + Actual->radius;
+		else if(Actual->x_pos + Actual->radius >= ScreenWidth() - WALLS_H) 
 			Actual->x_pos = Actual->x_pos - Actual->radius;
-		if(WallDistance[W_BOTTOM] < Actual->radius)
-			Actual->y_pos = Actual->y_pos - Actual->radius;
-		if(WallDistance[W_LEFT] < Actual->radius)
-			Actual->x_pos = Actual->x_pos + Actual->radius;								
+		if(Actual->y_pos - Actual->radius <= 0) 
+			Actual->y_pos = Actual->y_pos + Actual->radius;
+		else if(Actual->y_pos + Actual->radius >= ScreenHeight() - WALLS_H) 
+			Actual->y_pos = Actual->y_pos - Actual->radius;		
 	}
+
+
 
 	void CheckRestart()
 	{
 		if(GetKey(SPACE).bPressed)
 		{
 			Ids = 1;
-			N_BALLS = rand()%RAND_BALL;
+			EnableGravity = false;
 			Balls.clear();
+			RelativeVelocity.clear();
 			for(int i = 0; i < N_BALLS; i++)
 			{
-				CreateBall(rand()%ScreenWidth(), rand()%ScreenHeight(), rand()%RAND_RAD);
+				CreateBall(rand()%ScreenWidth(), rand()%ScreenHeight(), RADIUS);
+				Balls[i].v_x = 0;
+				Balls[i].v_y = 0;
 			}
 		}
 	}
@@ -353,20 +344,17 @@ public:
 	{
 		if(GetKey(CTRL).bPressed)
 		{
-			CreateBall(rand()%ScreenWidth(), rand()%ScreenHeight(), rand()%RAND_RAD);
+			CreateBall(rand()%ScreenWidth(), rand()%ScreenHeight(), RADIUS);
+			for(int i = 0; i < Balls.size(); i++)
+			{
+				Balls[i].v_x = 0;
+				Balls[i].v_y = 0;
+			}
+			RelativeVelocity.clear();
 		}
 	}
 
-	void TurnGravity()
-	{
-		if(GetMouse(1).bPressed)
-		{
-			if(ACC_GRAVITY == 0)
-				ACC_GRAVITY = 98;
-			else
-				ACC_GRAVITY = 0;
-		}
-	}
+
 	void AirFriction(BALL *Actual)
 	{
 		if(Actual->v_y != 0)
@@ -390,7 +378,7 @@ public:
 
 		for(int i = 0; i < N_BALLS; i++)
 		{
-			CreateBall(rand()%ScreenWidth(), rand()%ScreenHeight(), rand()%RAND_RAD);
+			CreateBall(rand()%ScreenWidth(), rand()%ScreenHeight(), RADIUS);
 		}
 		for(int i = 0; i < Balls.size(); i++)
 			FillCircle(Balls[i].x_pos , Balls[i].y_pos, Balls[i].radius, Balls[i].color);
@@ -398,26 +386,41 @@ public:
 		return true;
 	}
 
+	
+
 	bool OnUserUpdate(float fElapsedTime) override
 	{
 		Clear(BLACK);
-		
+		if(GetMouse(1).bPressed)
+			EnableGravity = !EnableGravity;
 		for(int ball = 0; ball <  Balls.size(); ball++)
 		{
 			GrabBall(&Balls[ball]);
-			BallDynamic(&Balls[ball], Balls, fElapsedTime);
+			BigRad = (Balls[ball].radius > BigRad)? Balls[ball].radius : BigRad;
 			for(int tar = 0; tar < Balls.size(); tar++)
 			{
 				if(Balls[tar].Id == Balls[ball].Id)
 					continue;
+				if(EnableGravity)
+					BallsGravity(&Balls[ball], &Balls[tar], fElapsedTime);
 				BallsOverlap(&Balls[ball], &Balls[tar]);
-			}		
+			}	
+			for(int newB = 0; newB < Balls.size(); newB++)
+			{
+				if(EnableGravity)
+					NewGravityPos(&Balls[ball], &Balls[newB], fElapsedTime);
+			}
+			// BallDynamic(&Balls[ball], fElapsedTime);	
+			if(BallGrabbed)
+			{
+				Balls[ball].v_x = 0;
+				Balls[ball].v_y = 0;
+				RelativeVelocity.clear();
+			}
+
 			// CheckWallsCompenetration(&Balls[ball]);
 			FillCircle(Balls[ball].x_pos , Balls[ball].y_pos, Balls[ball].radius, Balls[ball].color);
 		}
-		if(TempChanged)
-			TempChanged = false;
-		ChangeTemp();
 		DrawWalls();
 		AddBall();
 		CheckRestart();
@@ -428,7 +431,7 @@ int main()
 {
 	srand(time(NULL));
 	Example FallingBalls;
-	if (FallingBalls.Construct(200, 200, 2, 2))
+	if (FallingBalls.Construct(400, 400, 2, 2))
 		FallingBalls.Start();
 	return 0;
 }
