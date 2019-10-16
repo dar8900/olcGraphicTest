@@ -203,17 +203,17 @@ public:
 				break;
 			}
 		}
-		// Time += fElapsedTime;
-		// if(Time > 5.0f)
-		// {
-		// 	Time = 0.0f;
-		// 	cout << endl;
-		// 	for(int i = 0; i < snakeGuy.size(); i++)
-		// 	{
-		// 		cout << "X: " << snakeGuy[i].headX << endl;
-		// 		cout << "Y: " << snakeGuy[i].headY << endl;
-		// 	}
-		// }
+		Time += fElapsedTime;
+		if(Time > 2.0f)
+		{
+			Time = 0.0f;
+			cout << endl;
+			for(int i = 0; i < snakeGuy.size(); i++)
+			{
+				cout << "X: " << (int)snakeGuy[i].headX * 1000 << endl;
+				cout << "Y: " << (int)snakeGuy[i].headY * 1000<< endl;
+			}
+		}
 		
 
 		// Creazione e gestione raccolta frutta
@@ -221,7 +221,9 @@ public:
 		{
 			FruitCreated = true;
 			FruitCoord[0] = (float)(rand()%ScreenWidth());
-			FruitCoord[1] = (float)(rand()%ScreenHeight() - H_HIGH_SCORE);
+			FruitCoord[1] = (float)(rand()%ScreenHeight());
+			if(FruitCoord[1] <= 10)
+				FruitCoord[1] = 12;
 			FruitColor = Pixel(rand() % 255, rand() % 255, rand()% 255);
 		}
 		if(!FruitCached)
@@ -260,7 +262,7 @@ int main()
 {
 	srand(time(NULL));
 	SnakeProject Ssnake;
-	if (Ssnake.Construct(100, 100, 4, 4))
+	if (Ssnake.Construct(150, 150, 8, 8))
 		Ssnake.Start();
 	return 0;
 }
