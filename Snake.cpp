@@ -1,9 +1,11 @@
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
 #include <ctime>
+#include <sstream> 
 
 #define INIT_LENGHT	 8
-#define V_INCREMENT	 0.5f
+#define V_INCREMENT	 1.0f
+#define H_HIGH_SCORE 10
 
 using namespace std;
 using namespace olc;
@@ -16,9 +18,12 @@ typedef struct
 	float headY;
 }SNAKE;
 
+
+
 vector<SNAKE> snakeGuy;
 
-float AbsVelocity = 1;
+float AbsVelocity = 10;
+
 
 // Override base class with your custom functionality
 class SnakeProject : public olc::PixelGameEngine
@@ -30,7 +35,11 @@ public:
 	}
 private:
 	float snake_vx, snake_vy;
-	int Cycle;
+	bool FruitCreated, FruitCached;
+	float FruitCoord[2];
+	Pixel FruitColor;
+	int Score;
+	float Time;
 public:
 	
 
@@ -43,6 +52,16 @@ public:
 			else
 				Draw(snakeGuy[i].headX, snakeGuy[i].headY, WHITE);
 		}
+	}
+
+	void DrawScore(int Score)
+	{
+		stringstream s, v, l;
+		s << Score;
+		v << (int)AbsVelocity;
+		l << snakeGuy.size();
+		string score = "Score: " + s.str() + "  Vel: " + v.str() + "  Len: " + l.str(); 
+		DrawString(0, 0, score, WHITE, 1);
 	}
 
 	void UpdateVelocity()
@@ -63,11 +82,12 @@ public:
 		}
 	}
 
+
 	void Restart()
 	{
 		snakeGuy.clear();
 		float h_x = rand()%ScreenWidth();
-		float h_y = rand()%ScreenHeight();
+		float h_y = rand()%(ScreenHeight() - H_HIGH_SCORE);
 		snake_vx = -AbsVelocity;
 		snake_vy = 0;
 		for(int i = 0; i < INIT_LENGHT; i++)
@@ -80,9 +100,14 @@ public:
 	{
 		snakeGuy.clear();
 		float h_x = rand()%ScreenWidth();
-		float h_y = rand()%ScreenHeight();
+		float h_y = rand()%(ScreenHeight() - H_HIGH_SCORE);
 		snake_vx = -AbsVelocity;
 		snake_vy = 0;
+		FruitCreated = false;
+		FruitCached = false;
+		FruitColor = WHITE;
+		Score = 0;
+		Time = 0.0f;
 		for(int i = 0; i < INIT_LENGHT; i++)
 		{
 			snakeGuy.push_back({h_x + (float)i, h_y});
@@ -121,17 +146,7 @@ public:
 			snake_vy = 0;			
 			// Init = false;
 		}
-		if(GetKey(SPACE).bPressed)
-		{
-			if(snakeGuy[snakeGuy.size()].headX - snakeGuy[snakeGuy.size() - 1].headX < 0)
-				snakeGuy.push_back({snakeGuy[snakeGuy.size()].headX + 1, snakeGuy[snakeGuy.size()].headY});
-			else
-				snakeGuy.push_back({snakeGuy[snakeGuy.size()].headX - 1, snakeGuy[snakeGuy.size()].headY});
-			if(snakeGuy[snakeGuy.size()].headY - snakeGuy[snakeGuy.size() - 1].headY < 0)
-				snakeGuy.push_back({snakeGuy[snakeGuy.size()].headX, snakeGuy[snakeGuy.size()].headY + 1});
-			else
-				snakeGuy.push_back({snakeGuy[snakeGuy.size()].headX, snakeGuy[snakeGuy.size()].headY - 1});			
-		}
+
 		if(GetKey(A).bPressed || GetKey(A).bHeld)
 		{
 			AbsVelocity += V_INCREMENT;
@@ -143,15 +158,11 @@ public:
 			else
 				AbsVelocity = 0.0f;
 		}
+
+		// Aggiorno la velocità
 		UpdateVelocity();
 
-		// PrevTime += fElapsedTime;
-		// cout << PrevTime << endl;
-		// if(PrevTime >= 1)
-		// {
-		// PrevTime = 0;
-
-
+		// Aggiorno la posizione del corpo
 		for(int i = snakeGuy.size() - 1; i > 0; i--)
 		{
 			snakeGuy[i].headX = snakeGuy[i - 1].headX;
@@ -177,23 +188,71 @@ public:
 		if(snakeGuy[0].headX > ScreenWidth())
 			snakeGuy[0].headX = 0;
 
-		if(snakeGuy[0].headY < 0)
+		if(snakeGuy[0].headY < H_HIGH_SCORE)
 			snakeGuy[0].headY = ScreenHeight();
 		if(snakeGuy[0].headY > ScreenHeight())
-			snakeGuy[0].headY = 0;
+			snakeGuy[0].headY = H_HIGH_SCORE;
 
+		// Controllo sovrapposizione corpo
 		for(int i = 1; i < snakeGuy.size(); i++)
 		{
-			if(snakeGuy[0].headX == snakeGuy[i].headX && 
-				snakeGuy[0].headY == snakeGuy[i].headY)
+			if((int)(snakeGuy[0].headX * 1000)== (int)(snakeGuy[i].headX * 1000) && 
+				(int)(snakeGuy[0].headY * 1000) == (int)(snakeGuy[i].headY * 1000))
 			{
 				Restart();
 				break;
 			}
 		}
-
-		DrawSnakeBody();
+		// Time += fElapsedTime;
+		// if(Time > 5.0f)
+		// {
+		// 	Time = 0.0f;
+		// 	cout << endl;
+		// 	for(int i = 0; i < snakeGuy.size(); i++)
+		// 	{
+		// 		cout << "X: " << snakeGuy[i].headX << endl;
+		// 		cout << "Y: " << snakeGuy[i].headY << endl;
+		// 	}
 		// }
+		
+
+		// Creazione e gestione raccolta frutta
+		if(!FruitCreated)
+		{
+			FruitCreated = true;
+			FruitCoord[0] = (float)(rand()%ScreenWidth());
+			FruitCoord[1] = (float)(rand()%ScreenHeight() - H_HIGH_SCORE);
+			FruitColor = Pixel(rand() % 255, rand() % 255, rand()% 255);
+		}
+		if(!FruitCached)
+			FillCircle(FruitCoord[0], FruitCoord[1], 1, FruitColor);
+
+		if((int)snakeGuy[0].headX == (int)FruitCoord[0] && (int)snakeGuy[0].headY == (int)FruitCoord[1])
+		{
+			FruitCached = true;
+			FruitCreated = false;
+		}
+		if(FruitCached)
+		{
+			FruitCached = false;
+			Score++;
+			if(snakeGuy[snakeGuy.size()].headX - snakeGuy[snakeGuy.size() - 1].headX < 0)
+				snakeGuy.push_back({snakeGuy[snakeGuy.size()].headX + 1, snakeGuy[snakeGuy.size()].headY});
+			else
+				snakeGuy.push_back({snakeGuy[snakeGuy.size()].headX - 1, snakeGuy[snakeGuy.size()].headY});
+			if(snakeGuy[snakeGuy.size()].headY - snakeGuy[snakeGuy.size() - 1].headY < 0)
+				snakeGuy.push_back({snakeGuy[snakeGuy.size()].headX, snakeGuy[snakeGuy.size()].headY + 1});
+			else
+				snakeGuy.push_back({snakeGuy[snakeGuy.size()].headX, snakeGuy[snakeGuy.size()].headY - 1});		
+			AbsVelocity += V_INCREMENT;		
+		}
+
+		// Disegno corpo
+		DrawSnakeBody();
+
+		// Disegna punteggio
+		DrawScore(Score);
+		
 		return true;
 	}
 };
