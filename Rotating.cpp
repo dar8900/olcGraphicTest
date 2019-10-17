@@ -5,7 +5,7 @@
 #include <sstream> 
 #include "olcPixelGameEngine.h"
 
-#define BULLET_DIST 	50
+#define BULLET_DIST 	60
 
 
 using namespace std;
@@ -82,12 +82,50 @@ public:
 		}		
 	}
 
+	void DrawTarget()
+	{
+		for(int j = 0; j < TargetsTrig.size(); j++)
+		{
+			TRIG TrigModify;
+
+			// Rotate
+			for(int i = 0; i < 3; i++)
+			{
+				TrigModify.x[i] = TargetsTrig[j].x[i] * cosf(Targets[j].pAngle) - TargetsTrig[j].y[i] * sinf(Targets[j].pAngle);
+				TrigModify.y[i] = TargetsTrig[j].x[i] * sinf(Targets[j].pAngle) + TargetsTrig[j].y[i] * cosf(Targets[j].pAngle);
+			}
+
+			// Resize
+
+			for(int i = 0; i < 3; i++)
+			{
+				TrigModify.x[i] = TrigModify.x[i] * TargetsTrig[j].size;
+				TrigModify.y[i] = TrigModify.y[i] * TargetsTrig[j].size;
+			}	
+
+			// Traslate
+			for(int i = 0; i < 3; i++)
+			{
+				TrigModify.x[i] = TrigModify.x[i] + Targets[j].px;
+				TrigModify.y[i] = TrigModify.y[i] + Targets[j].py;
+			}
+
+			for(int i = 0; i < 3; i++)
+			{
+				int j = i + 1;
+				DrawLine(TrigModify.x[i % 3], TrigModify.y[i % 3], TrigModify.x[j % 3], TrigModify.y[j % 3]);
+			}		
+		}
+	}
+
 private:
 	TRIG Ship;
 	vector<TRIG> TargetsTrig;
 	GAMES_OBJ Guy;
 	vector<GAMES_OBJ> Bullets;
 	vector<GAMES_OBJ> Targets;
+	int n_target = 4;
+	bool RestartGame = false;
 protected:
 	
 	// Called by olcConsoleGameEngine
@@ -105,7 +143,7 @@ protected:
 		Guy.vx = 0.0f;
 		Guy.vy = 0.0f;
 		Guy.pAngle = 0.0f;
-		for(int i = 0; i < 1; i++)
+		for(int i = 0; i < n_target; i++)
 		{
 			TRIG LoadParam;
 			LoadParam.x[1] = 3.5; 
@@ -115,12 +153,42 @@ protected:
 			LoadParam.y[2] = 3.0; 
 			LoadParam.y[0] = 5.0f; 
 			TargetsTrig.push_back({LoadParam.x[0], LoadParam.x[1], LoadParam.x[2], 
-						 LoadParam.y[0], LoadParam.y[1], LoadParam.y[2],});
-			Targets.push_back({(float)(rand()% ScreenWidth()), (float)(rand()% ScreenHeight()), 0.0f, 0.0f, (float)(rand()% 6)});
+						 LoadParam.y[0], LoadParam.y[1], LoadParam.y[2], (float)(rand()% 6)});
+			Targets.push_back({(float)(rand()% ScreenWidth()), (float)(rand()% ScreenHeight()), -0.1f, 0.1f, 0.0f});
 		}
 		return true;
 	}
 
+	void Restart()
+	{
+		Ship.x[0] = 0.0f;
+		Ship.x[1] = -2.5f;
+		Ship.x[2] = 2.5f;
+		Ship.y[0] = -5.0f;
+		Ship.y[1] = 2.5f;
+		Ship.y[2] = 2.5f;
+		Ship.size = 1.0f;
+		Guy.px = ScreenWidth() / 2;
+		Guy.py = ScreenHeight() / 2;
+		Guy.vx = 0.0f;
+		Guy.vy = 0.0f;
+		Guy.pAngle = 0.0f;
+		TargetsTrig.clear();
+		Targets.clear();
+		for(int i = 0; i < n_target; i++)
+		{
+			TRIG LoadParam;
+			LoadParam.x[1] = 3.5; 
+			LoadParam.x[2] = 7.6; 
+			LoadParam.x[0] = (LoadParam.x[1] + LoadParam.x[2]) / 2;
+			LoadParam.y[1] = 3.0; 
+			LoadParam.y[2] = 3.0; 
+			LoadParam.y[0] = 5.0f; 
+			TargetsTrig.push_back({LoadParam.x[0], LoadParam.x[1], LoadParam.x[2], 
+						 LoadParam.y[0], LoadParam.y[1], LoadParam.y[2], (float)(rand()% 6)});
+			Targets.push_back({(float)(rand()% ScreenWidth()), (float)(rand()% ScreenHeight()), -0.1f, 0.1f, 0.0f});
+		}
+	}
 
 	// Called by olcConsoleGameEngine
 	bool OnUserUpdate(float fElapsedTime) override
@@ -145,37 +213,69 @@ protected:
 		if(GetKey(SPACE).bPressed)
 		{
 			// Recoil
-			Guy.vx -= sin(Guy.pAngle) * 20.0f * fElapsedTime;
-			Guy.vy -= -cos(Guy.pAngle) * 20.0f * fElapsedTime;				
+			Guy.vx -= sin(Guy.pAngle) * 5.0f * fElapsedTime;
+			Guy.vy -= -cos(Guy.pAngle) * 5.0f * fElapsedTime;				
 			Bullets.push_back({Guy.px, Guy.py, 50.0f * sinf(Guy.pAngle), -50.0f * cosf(Guy.pAngle), 100.0f });
 		}
 
 
-
-
-
-		for(auto &b:Bullets)
+		for(auto &tar : Targets)
 		{
-			b.px += b.vx * fElapsedTime;
-			b.py += b.vy * fElapsedTime;
-			WrapCoordinates(b.px, b.py, &b.px, &b.py);
-			b.pAngle -= 1.0f * fElapsedTime;
-		}
-		for(int i = 0; i < Bullets.size(); i++)
-		{
-			float Dist = CalcBallsQuadDistance(Bullets[i].px, Bullets[i].py, Guy.px, Guy.py, false);
-			if(Dist > (BULLET_DIST * BULLET_DIST))
-				Bullets.erase(Bullets.begin() + i);
-		}
-
-		// Draw bullets
-		for(auto b:Bullets)
-		{
-			Draw(b.px, b.py);
+			if(tar.px < Guy.px)
+				tar.px += tar.vx * fElapsedTime;
+			else
+				tar.px -= tar.vx * fElapsedTime;
+			if(tar.py < Guy.py)
+				tar.py += tar.vy * fElapsedTime;
+			else
+				tar.py -= tar.vy * fElapsedTime;
+			tar.pAngle -= 0.2f * fElapsedTime;
+			WrapCoordinates(tar.px, tar.py, &tar.px, &tar.py);
+			if(CalcBallsQuadDistance(tar.px, tar.py, Guy.px, Guy.py, true) < 5)
+			{
+				RestartGame = true;
+			}
 		}
 
-		DrawShip();
+		if(RestartGame)
+		{
+			RestartGame = false;
+			Restart();
+		}
+		else
+		{
+			for(auto &b:Bullets)
+			{
+				b.px += b.vx * fElapsedTime;
+				b.py += b.vy * fElapsedTime;
+				WrapCoordinates(b.px, b.py, &b.px, &b.py);
+				b.pAngle -= 1.0f * fElapsedTime;
+				for(auto &t : Targets)
+				{
+					float TarBulDist = CalcBallsQuadDistance(b.px, b.py, t.px, t.py, true);
+					if(TarBulDist <= 8)
+					{
+						t.vx -= sin(t.pAngle) * 20.0f * fElapsedTime;
+						t.vy -= -cos(t.pAngle) * 20.0f * fElapsedTime;
+					}
+				}
+			}
+			for(int i = 0; i < Bullets.size(); i++)
+			{
+				float Dist = CalcBallsQuadDistance(Bullets[i].px, Bullets[i].py, Guy.px, Guy.py, false);
+				if(Dist > (BULLET_DIST * BULLET_DIST))
+					Bullets.erase(Bullets.begin() + i);
+			}
 
+			// Draw bullets
+			for(auto b:Bullets)
+			{
+				Draw(b.px, b.py);
+			}
+
+			DrawShip();
+			DrawTarget();
+		}
 		return true;
 	}
 };
