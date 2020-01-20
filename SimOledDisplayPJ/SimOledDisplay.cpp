@@ -91,11 +91,11 @@ public:
 	void CreateGameObj()
 	{
 		GAME_OBJ Obj;
-		Obj.objType = CIRCLE;//(uint8_t)(rand()%MAX_OBJ_TYPE);
+		Obj.objType = (uint8_t)(rand()%MAX_OBJ_TYPE);
 		if(Obj.objType == RECTANGULAR)
 		{	
-			Obj.obj_x = (float)(rand()%ScreenWidth());
-			Obj.obj_y = (float)(rand()%(ScreenHeight() - (int)EtGuy.c_h - 2));
+			Obj.obj_x = 30;
+			Obj.obj_y = (float)(rand()%(ScreenHeight() - 20));
 			Obj.obj_w = (float)(rand()%MAX_OBJ_W);
 			Obj.obj_h = (float)(rand()%MAX_OBJ_H);
 			if(Obj.obj_w < EtGuy.c_w)
@@ -114,7 +114,7 @@ public:
 		}
 		else
 		{
-			Obj.obj_x = 66;//(float)(rand()%ScreenWidth());
+			Obj.obj_x = 40;//(float)(rand()%ScreenWidth());
 			Obj.obj_w = (float)(rand()%(MAX_OBJ_W - 10));
 			Obj.obj_h = Obj.obj_w;
 			Obj.obj_y = ScreenHeight() - (Obj.obj_w / 2) - 2;
@@ -170,9 +170,12 @@ public:
 
 		EtGuy.c_pos_x += (EtGuy.c_v_x * fElapsedTime);
 		if(EtGuy.c_pos_x > ScreenWidth() - 1)
-			EtGuy.c_pos_x = 1;
-		if(EtGuy.c_pos_x < 1)
-			EtGuy.c_pos_x = ScreenWidth() - 1;
+		{
+			// EtGuy.c_pos_x = 1;
+			NewScenario();
+		}
+		if((EtGuy.c_pos_x < 0 + EtGuy.c_w + 2) && (EtGuy.c_v_x < 0))
+			EtGuy.c_pos_x = 0 + EtGuy.c_w + 2;
 
 		if((EtGuy.c_v_y != 0 || EtGuy.c_pos_y < ScreenHeight() - 3) && !OverObject )
 		{
@@ -231,13 +234,18 @@ public:
 					OverObject = true;
 				}	
 			}
-			else if(distX1 < (EtGuy.c_w + GameObjs[i].obj_w) ||
-				(distX1 < (EtGuy.c_h + GameObjs[i].obj_w)))
+			else if((distX1 < (EtGuy.c_w + GameObjs[i].obj_w) ||
+				(distX1 < (EtGuy.c_h + GameObjs[i].obj_w))) && GameObjs[i].objType == CIRCLE)
 			{
-				if((int)EtGuy.c_v_y == 0)
+				if((int)EtGuy.c_v_y == 0 ||
+					EtGuy.c_v_y < 0)
 					EtGuy.c_v_x = 0;
 				else
+				{
+					// if(!OverObject)
+					// 	EtGuy.c_v_x = 0;
 					OverObject = true;
+				}
 			}
 			else
 				OverObject = false;
@@ -254,13 +262,23 @@ public:
 		{
 			GameObjs.clear();
 			EtGuy.c_pos_y = ScreenHeight() - 3;
-			EtGuy.c_pos_x = ScreenWidth() / 8;	
+			EtGuy.c_pos_x = 2 + EtGuy.c_w;	
 			EtGuy.c_v_x = 0;
 			EtGuy.c_v_y = 0;
 			EtGuy.c_w = 3;
 			EtGuy.c_h = 4;	
 			CreateGameObj();	
 		}
+	}
+
+	void NewScenario()
+	{
+		GameObjs.clear();
+		// EtGuy.c_pos_y = ScreenHeight() - 3;
+		EtGuy.c_pos_x = 2 + EtGuy.c_w;
+		if(EtGuy.c_v_x > 0)
+			EtGuy.c_v_x += 10;
+		CreateGameObj();			
 	}
 
 	bool OnUserCreate() override
