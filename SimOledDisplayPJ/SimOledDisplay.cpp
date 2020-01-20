@@ -97,7 +97,7 @@ public:
 			Obj.obj_x = 30;
 			Obj.obj_y = (float)(rand()%(ScreenHeight() - 20));
 			Obj.obj_w = (float)(rand()%MAX_OBJ_W);
-			Obj.obj_h = (float)(rand()%MAX_OBJ_H);
+			Obj.obj_h = (float)(rand()%MAX_OBJ_H - 10);
 			if(Obj.obj_w < EtGuy.c_w)
 				Obj.obj_w = EtGuy.c_w + 1;
 
